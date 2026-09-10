@@ -1,0 +1,8 @@
+playwright
+beautifulsoup4
+google-genai
+pydantic
+python-dotenv
+tiktoken
+tenacity
+markdownify
