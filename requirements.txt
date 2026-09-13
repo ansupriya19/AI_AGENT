@@ -1,8 +1,6 @@
 playwright
 beautifulsoup4
-google-genai
-pydantic
+groq
 python-dotenv
-tiktoken
-tenacity
-markdownify
+pydantic
+lxml

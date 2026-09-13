@@ -1,124 +1,553 @@
+import json
 import os
-import time
+from typing import Any, Dict, List
 
 from dotenv import load_dotenv
-from google import genai
-
-from schemas import CompanyIntelligence
-
+from groq import Groq
 
 load_dotenv()
 
-api_key = os.getenv("GEMINI_API_KEY")
-model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+MODEL = os.getenv(
+    "GROQ_MODEL",
+    "openai/gpt-oss-20b"
+)
 
-if not api_key:
-    raise ValueError(
-        "GEMINI_API_KEY is missing. Please check your .env file."
+MAX_INPUT_CHARS = int(
+    os.getenv("LLM_MAX_INPUT_CHARS", "7500")
+)
+
+MAX_PEOPLE = int(
+    os.getenv("LLM_MAX_PEOPLE", "20")
+)
+
+MAX_EMAILS = int(
+    os.getenv("LLM_MAX_EMAILS", "25")
+)
+
+MAX_LINKEDIN = int(
+    os.getenv("LLM_MAX_LINKEDIN", "30")
+)
+
+MAX_SOURCES = int(
+    os.getenv("LLM_MAX_SOURCES", "15")
+)
+
+MAX_SEARCH = int(
+    os.getenv("LLM_MAX_SEARCH", "15")
+)
+
+
+def _get_client() -> Groq:
+
+    api_key = os.getenv("GROQ_API_KEY")
+
+    if not api_key:
+        raise RuntimeError(
+            "GROQ_API_KEY is missing from .env"
+        )
+
+    return Groq(api_key=api_key)
+
+
+def _safe_list(value):
+    return value if isinstance(value, list) else []
+
+
+def _compact_people(
+    people: List[dict]
+) -> List[dict]:
+
+    result = []
+
+    for person in people[:MAX_PEOPLE]:
+
+        if not isinstance(person, dict):
+            continue
+
+        result.append(
+            {
+                "name": str(
+                    person.get("name") or ""
+                ).strip(),
+
+                "role": str(
+                    person.get("role") or ""
+                ).strip(),
+
+                "linkedin_url": str(
+                    person.get("linkedin_url") or ""
+                ).strip(),
+
+                "source_url": str(
+                    person.get("source_url") or ""
+                ).strip(),
+            }
+        )
+
+    return result
+
+
+def _compact_search(
+    results: List[dict]
+) -> List[dict]:
+
+    output = []
+
+    for item in results[:MAX_SEARCH]:
+
+        if not isinstance(item, dict):
+            continue
+
+        output.append(
+            {
+                "query": str(
+                    item.get("query") or ""
+                ).strip(),
+
+                "title": str(
+                    item.get("title") or ""
+                ).strip(),
+
+                "snippet": str(
+                    item.get("snippet") or ""
+                ).strip(),
+
+                "linkedin_url": str(
+                    item.get("linkedin_url") or ""
+                ).strip(),
+
+                "source": str(
+                    item.get("source") or ""
+                ).strip(),
+            }
+        )
+
+    return output
+
+
+def _build_schema():
+
+    return {
+        "type": "object",
+        "properties": {
+
+            "company_name": {
+                "type": "string"
+            },
+
+            "overview": {
+                "type": "string"
+            },
+
+            "industry": {
+                "type": "string"
+            },
+
+            "icp": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+
+            "team": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+
+                        "name": {
+                            "type": "string"
+                        },
+
+                        "role": {
+                            "type": "string"
+                        },
+
+                        "linkedin_url": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    },
+
+                    "required": [
+                        "name",
+                        "role",
+                        "linkedin_url"
+                    ],
+
+                    "additionalProperties": False
+                }
+            },
+
+            "emails": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+
+            "linkedin_urls": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+
+            "source_urls": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+
+            "confidence": {
+                "type": "number"
+            }
+        },
+
+        "required": [
+            "company_name",
+            "overview",
+            "industry",
+            "icp",
+            "team",
+            "emails",
+            "linkedin_urls",
+            "source_urls",
+            "confidence"
+        ],
+
+        "additionalProperties": False
+    }
+
+
+def _calculate_cost(
+    prompt_tokens: int,
+    completion_tokens: int
+) -> float:
+
+    input_price = float(
+        os.getenv(
+            "GROQ_INPUT_PRICE_PER_1M",
+            "0.075"
+        )
     )
 
-client = genai.Client(api_key=api_key)
+    output_price = float(
+        os.getenv(
+            "GROQ_OUTPUT_PRICE_PER_1M",
+            "0.30"
+        )
+    )
+
+    input_cost = (
+        prompt_tokens / 1_000_000
+    ) * input_price
+
+    output_cost = (
+        completion_tokens / 1_000_000
+    ) * output_price
+
+    return round(
+        input_cost + output_cost,
+        9
+    )
 
 
 def analyze_company(
     domain: str,
-    clean_text: str,
-    contact_emails: list[str],
-    linkedin_urls: list[str],
-) -> CompanyIntelligence:
-    """
-    Analyze website evidence using Gemini and return
-    validated structured company intelligence.
+    website_text: str,
+    emails: List[str],
+    linkedin_urls: List[str],
+    people_evidence: List[dict],
+    source_urls: List[str],
+    search_evidence: List[dict]
+) -> Dict[str, Any]:
 
-    Automatically retries temporary API failures.
-    """
+    website_text = (
+        website_text or ""
+    )[:MAX_INPUT_CHARS]
 
-    prompt = f"""
-You are an AI company research agent.
+    emails = _safe_list(emails)
+    linkedin_urls = _safe_list(linkedin_urls)
+    people_evidence = _safe_list(
+        people_evidence
+    )
+    source_urls = _safe_list(source_urls)
+    search_evidence = _safe_list(
+        search_evidence
+    )
 
-Analyze ONLY the public website evidence provided below.
+    compact_people = _compact_people(
+        people_evidence
+    )
 
-COMPANY DOMAIN:
-{domain}
+    compact_search = _compact_search(
+        search_evidence
+    )
 
-WEBSITE CONTENT:
-{clean_text}
+    evidence = {
+        "domain": domain,
 
-EMAILS FOUND DIRECTLY FROM WEBSITE:
-{contact_emails}
+        "website_text": website_text,
 
-LINKEDIN URLS FOUND DIRECTLY FROM WEBSITE:
-{linkedin_urls}
+        "people_evidence": compact_people,
 
-Extract the following information:
+        "linkedin_urls": linkedin_urls[
+            :MAX_LINKEDIN
+        ],
 
-1. Company Overview
-   - Give a concise 2-sentence description.
-   - Explain what the company does and its main product/service.
+        "emails": emails[
+            :MAX_EMAILS
+        ],
 
-2. Target Audience / ICP
-   - Identify the likely customers or users.
-   - Use only the supplied website evidence.
+        "source_urls": source_urls[
+            :MAX_SOURCES
+        ],
 
-3. Contact Emails
-   - Include only publicly visible company/generic emails.
-   - Never invent an email address.
-   - Prefer the emails supplied in the evidence.
+        "external_search": compact_search
+    }
 
-4. Key Leadership / Team
-   - Extract names only when supported by the evidence.
-   - Include their role/title when available.
-   - Include a LinkedIn URL when available.
-   - Never invent people, roles, or URLs.
+    system_prompt = """
+You are a professional company intelligence extraction agent.
 
-5. Confidence Score
-   - Return a number between 0.0 and 1.0.
-   - Use a higher score when the evidence strongly supports the result.
-   - Use a lower score when important information is missing.
+Your task is to extract factual company intelligence from website
+and search evidence.
 
-IMPORTANT RULES:
-- Do not hallucinate.
-- Do not use outside knowledge.
-- Do not invent missing information.
-- If information is unavailable, use an empty string, empty list, or null.
-- LinkedIn URLs must come from the supplied evidence.
+For TEAM MEMBERS:
+
+- Identify real people associated with the company.
+- Match personal LinkedIn URLs to names.
+- Determine professional roles when supported by evidence.
+- A personal LinkedIn URL such as /in/john-smith is evidence about
+  a person, but the slug alone is not sufficient to invent facts.
+- Search the supplied website evidence for the corresponding person.
+- Search for leadership, founders, executives, management and team
+  information.
+- Never confuse the company LinkedIn URL with a person's URL.
+- Never invent a role.
+- Never invent a person's identity.
+- Use empty role only when the supplied evidence genuinely does not
+  support a role.
+
+IMPORTANT:
+
+A team member object should look like:
+
+{
+  "name": "Full Name",
+  "role": "Actual Role",
+  "linkedin_url": "https://www.linkedin.com/in/example"
+}
+
+For COMPANY:
+
+Extract:
+- company name
+- overview
+- industry
+- ideal customer profile
+- public emails
+- LinkedIn URLs
+- source URLs
+- confidence
+
+Use only information supported by evidence.
 """
 
-    max_retries = 3
+    user_prompt = (
+        "Analyze this company.\n\n"
+        + json.dumps(
+            evidence,
+            ensure_ascii=False,
+            separators=(",", ":")
+        )
+    )
 
-    for attempt in range(max_retries):
+    print(
+        "\n========== GROQ REQUEST =========="
+    )
 
-        try:
+    print(
+        f"Model: {MODEL}"
+    )
 
-            response = client.models.generate_content(
-                model=model,
-                contents=prompt,
-                config={
-                    "response_mime_type": "application/json",
-                    "response_schema": CompanyIntelligence,
-                },
-            )
+    print(
+        f"Input characters: "
+        f"{len(system_prompt + user_prompt)}"
+    )
 
-            return CompanyIntelligence.model_validate_json(
-                response.text
-            )
+    print(
+        f"People evidence: "
+        f"{len(compact_people)}"
+    )
 
-        except Exception as error:
+    print(
+        f"LinkedIn URLs: "
+        f"{len(linkedin_urls)}"
+    )
 
-            if attempt == max_retries - 1:
-                print(
-                    f"[ERROR] Gemini failed after "
-                    f"{max_retries} attempts: {error}"
-                )
-                raise
+    print(
+        "=================================="
+    )
 
-            wait_time = 2 ** attempt
+    client = _get_client()
 
-            print(
-                f"[WARNING] Gemini request failed. "
-                f"Retrying in {wait_time} second(s)..."
-            )
+    response = client.chat.completions.create(
+        model=MODEL,
 
-            time.sleep(wait_time)
+        messages=[
+            {
+                "role": "system",
+                "content": system_prompt
+            },
+            {
+                "role": "user",
+                "content": user_prompt
+            }
+        ],
 
-    raise RuntimeError("Unexpected Gemini retry state.")
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "company_intelligence",
+                "strict": True,
+                "schema": _build_schema()
+            }
+        },
+
+        reasoning_effort="low",
+
+        max_completion_tokens=700,
+
+        temperature=0.1
+    )
+
+    content = (
+        response.choices[0]
+        .message.content
+        or "{}"
+    )
+
+    parsed = json.loads(content)
+
+    usage = response.usage
+
+    prompt_tokens = int(
+        getattr(
+            usage,
+            "prompt_tokens",
+            0
+        ) or 0
+    )
+
+    completion_tokens = int(
+        getattr(
+            usage,
+            "completion_tokens",
+            0
+        ) or 0
+    )
+
+    total_tokens = int(
+        getattr(
+            usage,
+            "total_tokens",
+            prompt_tokens + completion_tokens
+        )
+        or
+        (
+            prompt_tokens
+            + completion_tokens
+        )
+    )
+
+    estimated_cost = _calculate_cost(
+        prompt_tokens,
+        completion_tokens
+    )
+
+    parsed["usage"] = {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "estimated_cost_usd": estimated_cost
+    }
+
+    parsed.setdefault(
+        "company_name",
+        domain
+    )
+
+    parsed.setdefault(
+        "overview",
+        ""
+    )
+
+    parsed.setdefault(
+        "industry",
+        ""
+    )
+
+    parsed.setdefault(
+        "icp",
+        []
+    )
+
+    parsed.setdefault(
+        "team",
+        []
+    )
+
+    parsed.setdefault(
+        "emails",
+        []
+    )
+
+    parsed.setdefault(
+        "linkedin_urls",
+        []
+    )
+
+    parsed.setdefault(
+        "source_urls",
+        []
+    )
+
+    parsed.setdefault(
+        "confidence",
+        0.0
+    )
+
+    print(
+        "\n========== GROQ SUCCESS =========="
+    )
+
+    print(
+        f"Prompt tokens: "
+        f"{prompt_tokens}"
+    )
+
+    print(
+        f"Completion tokens: "
+        f"{completion_tokens}"
+    )
+
+    print(
+        f"Total tokens: "
+        f"{total_tokens}"
+    )
+
+    print(
+        f"Estimated cost: "
+        f"${estimated_cost:.9f}"
+    )
+
+    print(
+        "=================================="
+    )
+
+    return parsed

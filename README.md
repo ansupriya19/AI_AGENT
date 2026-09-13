@@ -1,326 +1,458 @@
 # AI Company Intelligence Agent
 
-An autonomous Python-based AI agent that crawls public company websites, extracts useful company information, and uses an LLM to generate structured company intelligence.
+An autonomous AI-powered company intelligence agent that accepts public company domains, automatically crawls relevant website pages, extracts useful business and leadership information, enriches the collected evidence, and produces structured company intelligence in JSON format.
+
+The system is designed to work with different public company websites instead of depending on fixed company-specific URLs.
+
+---
 
 ## Features
 
-* Dynamic website crawling using Playwright
-* Automatic discovery of relevant internal pages
-* Handles JavaScript-rendered websites
-* Extracts clean visible text from HTML
-* Removes scripts, styles, SVGs, navigation, and footer boilerplate
-* Extracts publicly available email addresses
-* Extracts LinkedIn URLs from website content
-* Uses Google Gemini for structured company analysis
-* Pydantic schema validation
-* Confidence scoring
-* Error handling for failed pages
-* Handles missing pages and 404 responses
-* Handles page timeouts and navigation failures
-* Continues processing when individual companies fail
-* Saves final intelligence as JSON
-* Supports custom company domains through command-line arguments
+- Accepts one or multiple company domains as input
+- Automatically crawls public company websites
+- Uses Playwright for JavaScript-rendered websites
+- Discovers relevant pages such as:
+  - About
+  - Company
+  - Team
+  - Leadership
+  - Founders
+  - People
+  - Contact
+  - Pricing
+  - Press / Media
+- Extracts public business emails
+- Extracts LinkedIn URLs
+- Identifies leadership and team members
+- Identifies roles such as CEO, CTO, Founder, Director, VP, Head of, and similar positions
+- Uses external search for additional public information
+- Uses Groq LLM for structured company intelligence extraction
+- Uses compact evidence instead of sending raw HTML to the LLM
+- Tracks token usage
+- Estimates LLM API cost
+- Handles page failures and individual company failures without stopping the complete pipeline
+- Saves final results as structured JSON
 
-## Architecture
+---
 
-```text
+# Architecture
+
+text
 Company Domains
-      |
-      v
-Python Pipeline
-      |
-      v
-Playwright Browser
-      |
-      v
-Homepage + Relevant Internal Pages
-      |
-      v
-Rendered HTML Content
-      |
-      v
-HTML Cleaning & Extraction
-      |
-      +------> Public Emails
-      |
-      +------> LinkedIn URLs
-      |
-      v
-Clean Website Text
-      |
-      v
-Google Gemini LLM
-      |
-      v
-Structured JSON Response
-      |
-      v
-Pydantic Validation
-      |
-      v
-data/output.json
+       |
+       v
+Playwright Web Crawler
+       |
+       v
+Rendered Website Content
+       |
+       v
+HTML / Text Preprocessing
+       |
+       +----------------------+
+       |                      |
+       v                      v
+Deterministic Extraction   External Search
+       |                      |
+       +----------+-----------+
+                  |
+                  v
+          Compact Evidence
+                  |
+                  v
+              Groq LLM
+                  |
+                  v
+        Structured JSON Output
+                  |
+                  v
+        Evidence Merge Layer
+                  |
+                  v
+          data/output.json
 ```
 
-## Project Structure
+---
+
+# Project Structure
 
 ```text
 AI_AGENT/
-|
-├── data/
-│   └── output.json
-|
+│
+├── main.py
+├── README.md
+├── requirements.txt
+├── .env
+├── .gitignore
+│
 ├── src/
 │   ├── __init__.py
 │   ├── crawler.py
 │   ├── extractor.py
+│   ├── search.py
 │   ├── llm.py
 │   ├── pipeline.py
 │   └── schemas.py
-|
-├── .env
-├── .gitignore
-├── main.py
-├── requirements.txt
-└── README.md
+│
+└── data/
+    └── output.json
 ```
 
-## How the Agent Works
+---
 
-The system processes each company domain through multiple stages.
+# Technologies Used
 
-### 1. Input
+- Python
+- Playwright
+- BeautifulSoup
+- Requests
+- Groq API
+- Pydantic
+- python-dotenv
+- Git
+- GitHub
 
-The agent accepts company domains from the command line.
+---
 
-The default assignment domains are:
+# File Responsibilities
+
+## `main.py`
+
+Main entry point of the project.
+
+It:
+
+- accepts company domains
+- starts the company intelligence pipeline
+- controls crawl limits
+- saves the final output
+
+---
+
+## `src/crawler.py`
+
+Responsible for:
+
+- opening websites
+- rendering JavaScript
+- discovering internal pages
+- prioritizing relevant company pages
+- reading sitemap information
+- handling failed pages
+- avoiding unnecessary low-value URLs
+
+---
+
+## `src/extractor.py`
+
+Responsible for deterministic extraction of:
+
+- email addresses
+- `mailto:` links
+- LinkedIn URLs
+- names
+- leadership roles
+- source URLs
+- cleaned page content
+
+---
+
+## `src/search.py`
+
+Responsible for optional external search enrichment.
+
+This can be used to find additional public company or leadership information that may not be available directly on the company website.
+
+---
+
+## `src/llm.py`
+
+Responsible for the Groq LLM request.
+
+The LLM receives compact evidence rather than raw HTML.
+
+It generates structured information such as:
+
+- company name
+- overview
+- industry
+- target audience / ICP
+- leadership team
+- emails
+- LinkedIn URLs
+- source URLs
+- confidence score
+
+---
+
+## `src/pipeline.py`
+
+Coordinates the complete workflow:
 
 ```text
-postman.com
-supabase.com
-vapi.ai
+Crawling
+   ↓
+Extraction
+   ↓
+External Search
+   ↓
+LLM Processing
+   ↓
+Evidence Merging
+   ↓
+Final Result
 ```
 
-Custom domains can also be provided.
+---
 
-### 2. Website Crawling
+## `src/schemas.py`
 
-Playwright launches a headless Chromium browser and loads the company website.
+Contains structured data definitions used for validating the extracted company information.
 
-The crawler first visits the homepage and then discovers relevant internal pages using links found on the homepage.
+---
 
-Relevant pages may include:
+# Installation
 
-* About
-* Company
-* Team
-* Leadership
-* Contact
-* Pricing
+## 1. Clone the repository
 
-The crawler uses rendered browser content so that JavaScript-based websites can also be processed.
-
-### 3. Content Extraction
-
-The raw HTML is not directly sent to the LLM.
-
-The extractor removes unnecessary elements such as:
-
-* JavaScript
-* CSS
-* SVG
-* iframe
-* canvas
-* noscript
-* navigation
-* footer
-
-The remaining visible text is cleaned and normalized before being passed to the LLM.
-
-This reduces unnecessary tokens and improves the quality of the information supplied to the model.
-
-### 4. Contact Extraction
-
-The extractor identifies publicly visible email addresses from the crawled HTML.
-
-Only emails actually found in the website content are passed to the LLM.
-
-The system does not generate or guess email addresses.
-
-### 5. LinkedIn Extraction
-
-The system also identifies LinkedIn URLs available in the website HTML.
-
-These URLs can represent:
-
-* Company LinkedIn pages
-* Leadership profiles
-* Team member profiles
-
-Only discovered URLs are provided to the LLM.
-
-### 6. LLM Analysis
-
-The cleaned website information is passed to Google Gemini.
-
-The LLM is instructed to analyze only the supplied website evidence and avoid hallucinating information.
-
-The model extracts:
-
-* Company overview
-* Target audience / Ideal Customer Profile
-* Public contact emails
-* Key leadership/team members
-* Roles and titles
-* LinkedIn URLs when available
-* Confidence score
-
-### 7. Structured Output
-
-The Gemini response is validated using Pydantic.
-
-The output follows a fixed schema:
-
-```json
-{
-    "domain": "example.com",
-    "company_overview": "Company description...",
-    "target_audience": "Target customers...",
-    "contact_emails": [],
-    "team_members": [],
-    "confidence_score": 0.85
-}
-```
-
-The confidence score is constrained between:
-
-```text
-0.0 and 1.0
-```
-
-### 8. Final Output
-
-The final results are stored in:
-
-```text
-data/output.json
-```
-
-Each successfully processed company is stored as a separate JSON object.
-
-## Technologies Used
-
-### Python
-
-The core programming language used to build the agent and pipeline.
-
-### Playwright
-
-Used for automated browser-based website crawling and JavaScript-rendered content.
-
-### BeautifulSoup
-
-Used for parsing HTML and extracting clean visible text.
-
-### Google Gemini
-
-Used as the LLM for company intelligence extraction and structured analysis.
-
-### Pydantic
-
-Used for schema validation and ensuring reliable structured output.
-
-### python-dotenv
-
-Used to securely load environment variables such as the Gemini API key.
-
-### Tenacity
-
-Included for retry and resilience handling for temporary API failures.
-
-### tiktoken
-
-Included for token-related processing and optimization support.
-
-## Installation
-
-### 1. Clone the Repository
-
-After downloading or cloning the project:
-
-```bash
-git clone <your-github-repository-url>
+```powershell
+git clone https://github.com/ansupriya19/AI_AGENT.git
 cd AI_AGENT
-```
 
-### 2. Create a Virtual Environment
 
-Windows:
+---
+
+## 2. Create a virtual environment
 
 ```powershell
 python -m venv venv
 ```
 
-### 3. Activate the Virtual Environment
+---
 
-Windows PowerShell:
-
-```powershell
-.\venv\Scripts\Activate.ps1
-```
-
-If PowerShell execution policy prevents activation:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-```
-
-Then:
+## 3. Activate the virtual environment
 
 ```powershell
 .\venv\Scripts\Activate.ps1
 ```
 
-### 4. Install Python Dependencies
+---
+
+## 4. Install dependencies
 
 ```powershell
 python -m pip install -r requirements.txt
 ```
 
-### 5. Install Playwright Chromium
+---
+
+## 5. Install Playwright Chromium
 
 ```powershell
 python -m playwright install chromium
 ```
 
-## Environment Configuration
+---
 
-Create a `.env` file in the project root.
+# Environment Configuration
+
+Create a file named:
 
 ```text
-GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL=gemini-3.6-flash
+.env
 ```
 
-The API key must not be committed to GitHub.
+in the root directory of the project.
 
-The `.gitignore` file excludes:
+The project uses environment variables so that API keys and runtime configuration do not need to be hard-coded in Python files.
+
+Your project should contain:
 
 ```text
+AI_AGENT/
+│
+├── .env
+├── main.py
+├── requirements.txt
+├── README.md
+└── src/
+```
+
+---
+
+# `.env` Configuration
+
+Use the following configuration:
+
+```env
+GROQ_API_KEY=YOUR_GROQ_API_KEY
+GROQ_MODEL=openai/gpt-oss-20b
+
+MAX_CRAWL_PAGES=50
+ENABLE_EXTERNAL_SEARCH=true
+
+LLM_MAX_INPUT_CHARS=7500
+LLM_MAX_PEOPLE=20
+LLM_MAX_EMAILS=25
+LLM_MAX_LINKEDIN=30
+LLM_MAX_SOURCES=15
+LLM_MAX_SEARCH=15
+
+GROQ_INPUT_PRICE_PER_1M=0.075
+GROQ_OUTPUT_PRICE_PER_1M=0.30
+```
+
+---
+
+# Environment Variable Explanation
+
+## `GROQ_API_KEY`
+
+Your Groq API key.
+
+```env
+GROQ_API_KEY=YOUR_GROQ_API_KEY
+```
+
+---
+
+## `GROQ_MODEL`
+
+The LLM model used by the project.
+
+```env
+GROQ_MODEL=openai/gpt-oss-20b
+```
+
+---
+
+## `MAX_CRAWL_PAGES`
+
+Maximum number of pages to crawl for each company.
+
+```env
+MAX_CRAWL_PAGES=50
+```
+
+---
+
+## `ENABLE_EXTERNAL_SEARCH`
+
+Controls whether external search enrichment is enabled.
+
+```env
+ENABLE_EXTERNAL_SEARCH=true
+```
+
+---
+
+## `LLM_MAX_INPUT_CHARS`
+
+Maximum amount of compact evidence sent to the LLM.
+
+```env
+LLM_MAX_INPUT_CHARS=7500
+```
+
+---
+
+## `LLM_MAX_PEOPLE`
+
+Maximum number of people entries sent to the LLM.
+
+```env
+LLM_MAX_PEOPLE=20
+```
+
+---
+
+## `LLM_MAX_EMAILS`
+
+Maximum number of email addresses passed to the LLM.
+
+```env
+LLM_MAX_EMAILS=25
+```
+
+---
+
+## `LLM_MAX_LINKEDIN`
+
+Maximum number of LinkedIn URLs passed to the LLM.
+
+```env
+LLM_MAX_LINKEDIN=30
+```
+
+---
+
+## `LLM_MAX_SOURCES`
+
+Maximum number of source URLs passed to the LLM.
+
+```env
+LLM_MAX_SOURCES=15
+```
+
+---
+
+## `LLM_MAX_SEARCH`
+
+Maximum amount of external search evidence used.
+
+```env
+LLM_MAX_SEARCH=15
+```
+
+---
+
+## `GROQ_INPUT_PRICE_PER_1M`
+
+Input token price used for local cost estimation.
+
+```env
+GROQ_INPUT_PRICE_PER_1M=0.075
+```
+
+---
+
+## `GROQ_OUTPUT_PRICE_PER_1M`
+
+Output token price used for local cost estimation.
+
+```env
+GROQ_OUTPUT_PRICE_PER_1M=0.30
+```
+
+---
+
+# Security
+
+**Never commit your real `.env` file to GitHub.**
+
+Add the following entries to `.gitignore`:
+
+```gitignore
 .env
 venv/
 __pycache__/
 *.pyc
+data/output.json
 ```
 
-## Running the Agent
+GitHub recommends securing repositories against accidentally exposed secrets such as API keys and tokens. :contentReference[oaicite:1]{index=1}
 
-### Run Default Assignment Domains
+---
+
+# Running the Project
+
+## Run with default companies
 
 ```powershell
 python main.py
 ```
 
-This processes:
+The default companies are:
 
 ```text
 postman.com
@@ -328,302 +460,748 @@ supabase.com
 vapi.ai
 ```
 
-### Run Custom Domains
+---
 
-You can provide one or more domains:
+## Run one company
 
 ```powershell
-python main.py example.com example2.com
+python main.py postman.com
 ```
 
-For example:
+---
+
+## Run multiple companies
 
 ```powershell
 python main.py postman.com supabase.com vapi.ai
 ```
 
-## Example Execution
+---
 
-```text
-AI COMPANY INTELLIGENCE AGENT
-============================================================
-Companies to process: 3
+# Changing the Crawl Limit
 
-============================================================
-Processing: postman.com
-============================================================
-[1/3] Crawling website...
-[INFO] Discovered 5 relevant link(s).
-[INFO] Successfully crawled 6 page(s).
-[2/3] Cleaning and extracting information...
-[INFO] Found 3 email(s)
-[INFO] Found 4 LinkedIn URL(s)
-[3/3] Sending evidence to LLM...
-[SUCCESS] Company analysis completed.
+For example:
 
-============================================================
-Processing: supabase.com
-============================================================
-[1/3] Crawling website...
-[INFO] Discovered 5 relevant link(s).
-[INFO] Successfully crawled 6 page(s).
-[2/3] Cleaning and extracting information...
-[INFO] Found 5 email(s)
-[INFO] Found 0 LinkedIn URL(s)
-[3/3] Sending evidence to LLM...
-[SUCCESS] Company analysis completed.
-
-============================================================
-Processing: vapi.ai
-============================================================
-[1/3] Crawling website...
-[INFO] Discovered 1 relevant link(s).
-[INFO] Successfully crawled 2 page(s).
-[2/3] Cleaning and extracting information...
-[INFO] Found 0 email(s)
-[INFO] Found 1 LinkedIn URL(s)
-[3/3] Sending evidence to LLM...
-[SUCCESS] Company analysis completed.
-
-============================================================
-PROCESSING COMPLETE
-Successful companies: 3
-Output saved to: data\output.json
-============================================================
+```powershell
+$env:MAX_CRAWL_PAGES="50"
+python main.py postman.com
 ```
 
-## Output Schema
+For a smaller test:
 
-The final output contains the following fields:
+```powershell
+$env:MAX_CRAWL_PAGES="10"
+python main.py postman.com
+```
 
-### domain
+For deeper crawling:
 
-The company domain that was processed.
+```powershell
+$env:MAX_CRAWL_PAGES="75"
+python main.py postman.com
+```
 
-### company_overview
+---
 
-A concise two-sentence description of the company based on website evidence.
+# How the Agent Works
 
-### target_audience
+## Step 1 - Company Input
 
-The identified target users or Ideal Customer Profile.
+The user provides one or more public company domains.
 
-### contact_emails
+Example:
 
-Publicly available email addresses discovered from the website.
+```text
+postman.com
+supabase.com
+vapi.ai
+```
 
-### team_members
+---
 
-Important team or leadership members discovered from the supplied website evidence.
+## Step 2 - Website Crawling
 
-Each team member may contain:
+The Playwright crawler opens the company website and searches for useful internal pages.
+
+Priority is given to pages such as:
+
+```text
+/about
+/company
+/team
+/leadership
+/founders
+/people
+/contact
+/contact-sales
+/pricing
+/press
+/media
+```
+
+The crawler can also inspect sitemap information to discover additional public pages.
+
+---
+
+## Step 3 - JavaScript Rendering
+
+Some modern websites generate their content dynamically using JavaScript.
+
+Because of this, normal HTTP requests alone may not expose the complete page.
+
+Playwright launches Chromium and renders the page before extraction.
+
+---
+
+## Step 4 - Evidence Extraction
+
+The project extracts useful information directly from the website.
+
+Examples include:
+
+```text
+Email addresses
+LinkedIn URLs
+Names
+Leadership roles
+Company pages
+Source URLs
+```
+
+This extraction happens before the LLM step.
+
+---
+
+## Step 5 - Data Cleaning
+
+The system removes unnecessary content such as:
+
+```text
+Scripts
+CSS
+SVG content
+Navigation boilerplate
+Unnecessary HTML structure
+```
+
+The goal is to create compact evidence.
+
+---
+
+## Step 6 - External Search
+
+When enabled, the agent can perform additional public searches.
+
+This can help identify information such as:
+
+```text
+Founder LinkedIn profiles
+Leadership profiles
+Additional public company information
+```
+
+---
+
+## Step 7 - LLM Processing
+
+The cleaned evidence is sent to the Groq LLM.
+
+The model converts the evidence into structured company intelligence.
+
+The LLM does **not** receive the complete raw HTML tree.
+
+---
+
+## Step 8 - Structured Output
+
+The model generates fields such as:
 
 ```json
 {
-    "name": "Person Name",
-    "role": "Role or Title",
-    "linkedin_url": "LinkedIn URL"
+  "company_name": "",
+  "overview": "",
+  "industry": "",
+  "icp": "",
+  "team": [],
+  "emails": [],
+  "linkedin_urls": [],
+  "source_urls": [],
+  "confidence": 0.0
 }
 ```
 
-### confidence_score
+---
 
-A numerical value between `0.0` and `1.0` representing confidence in the extracted intelligence.
+## Step 9 - Evidence Merge
 
-## Sample Output
+The project merges deterministic extraction results with the LLM result.
 
-Example structure:
+This helps preserve information such as:
+
+- emails
+- LinkedIn URLs
+- team members
+- source URLs
+
+even when the LLM response does not include every extracted item.
+
+---
+
+# Output
+
+The final output is saved in:
+
+```text
+data/output.json
+```
+
+Example:
 
 ```json
-[
+{
+  "generated_at": "2026-09-13T00:00:00",
+  "companies": [
     {
-        "domain": "postman.com",
-        "company_overview": "Postman is an AI-native API platform designed to develop, test, manage, and distribute APIs and services.",
-        "target_audience": "Software engineers, API developers, and enterprise organizations building and scaling APIs.",
-        "contact_emails": [
-            "info@postman.com"
-        ],
-        "team_members": [
-            {
-                "name": "Abhinav Asthana",
-                "role": "CEO/Co-Founder",
-                "linkedin_url": "https://www.linkedin.com/in/abhinavasthana"
-            }
-        ],
-        "confidence_score": 0.95
+      "company_name": "Example Company",
+      "overview": "Example Company provides software solutions for modern businesses.",
+      "industry": "Software",
+      "icp": "Technology teams and businesses",
+      "team": [
+        {
+          "name": "Example Founder",
+          "role": "Co-Founder & CEO",
+          "linkedin_url": "https://www.linkedin.com/in/example"
+        }
+      ],
+      "emails": [
+        "info@example.com"
+      ],
+      "linkedin_urls": [
+        "https://www.linkedin.com/company/example"
+      ],
+      "source_urls": [
+        "https://example.com/about"
+      ],
+      "confidence": 0.92
     }
-]
+  ]
+}
 ```
 
-## Resilience and Error Handling
+---
 
-The pipeline is designed so that failures in individual pages or companies do not unnecessarily terminate the entire process.
+# Output Fields
 
-The crawler handles:
+## `company_name`
 
-* HTTP 404 responses
-* Page navigation failures
-* Page timeouts
-* Missing links
-* Missing HTML elements
-* JavaScript-rendering issues
-* Empty pages
-* Bot-blocked or inaccessible pages
+The normalized company name.
 
-The extraction layer handles:
+---
 
-* Missing emails
-* Missing LinkedIn URLs
-* Empty page content
-* Duplicate emails
-* Duplicate LinkedIn URLs
+## `overview`
 
-The LLM layer validates its response using Pydantic.
+A concise description of what the company does.
 
-If a company cannot be processed successfully, the pipeline returns `None` and continues with the remaining domains.
+---
 
-## Anti-Hallucination Approach
+## `industry`
 
-The LLM is explicitly instructed to use only the supplied website evidence.
+The inferred business or technology industry.
 
-The system prevents the model from:
+---
 
-* Inventing email addresses
-* Inventing people
-* Inventing job titles
-* Inventing LinkedIn URLs
-* Using unsupported external information
+## `icp`
 
-When information is unavailable, the model is instructed to return an empty value, empty list, or `null`.
+The target audience or Ideal Customer Profile.
 
-This approach prioritizes factual reliability over filling every field.
+---
 
-## Token Optimization
+## `team`
 
-The system does not send raw HTML trees directly to the LLM.
+Leadership and relevant team members discovered from public sources.
 
-Before LLM processing:
+Each member can contain:
 
-1. HTML is parsed.
-2. Scripts and styles are removed.
-3. SVG and other unnecessary elements are removed.
-4. Navigation and footer boilerplate are removed.
-5. Visible text is extracted.
-6. Whitespace is normalized.
-7. Page text is limited to a reasonable maximum length.
-8. Relevant extracted emails and LinkedIn URLs are supplied separately.
+```json
+{
+  "name": "",
+  "role": "",
+  "linkedin_url": ""
+}
+```
 
-This reduces unnecessary context and makes the LLM input more focused.
+---
 
-## Testing
+## `emails`
 
-The agent was tested using the three assignment domains:
+Publicly available company or generic email addresses.
+
+---
+
+## `linkedin_urls`
+
+Relevant LinkedIn company and personal-profile URLs.
+
+---
+
+## `source_urls`
+
+Public pages used as evidence.
+
+---
+
+## `confidence`
+
+A confidence score between:
 
 ```text
-postman.com
-supabase.com
-vapi.ai
+0.0
 ```
 
-The test successfully produced structured results for all three domains.
-
-### Test Results
+and:
 
 ```text
-postman.com
-6 pages crawled
-3 emails discovered
-4 LinkedIn URLs discovered
-LLM analysis successful
-
-supabase.com
-6 pages crawled
-5 emails discovered
-0 LinkedIn URLs discovered
-LLM analysis successful
-
-vapi.ai
-2 pages crawled
-0 emails discovered
-1 LinkedIn URL discovered
-LLM analysis successful
+1.0
 ```
 
-## Limitations
+---
 
-The current implementation relies primarily on information available on the company's public website.
+# Token Optimization
 
-If a company does not publish:
+A major design goal of this project is to avoid sending unnecessarily large website content to the LLM.
 
-* Leadership information
-* Contact emails
-* LinkedIn profiles
-
-the corresponding fields may remain empty.
-
-The system does not fabricate missing information.
-
-Some websites may also block automated browsing or require additional browser interaction.
-
-## Future Improvements
-
-Possible improvements include:
-
-* External search integration using Tavily or SerpAPI
-* Searching for leadership LinkedIn profiles when unavailable on the website
-* More advanced agentic workflows using LangGraph or Browser-Use
-* Automatic token and API cost tracking
-* Persistent company intelligence storage
-* Parallel processing of multiple companies
-* More advanced duplicate-content detection
-* Additional website discovery strategies
-* Structured CSV export
-* Confidence calibration based on evidence coverage
-
-## Security
-
-API keys are loaded from environment variables.
-
-Secrets should never be placed directly inside source code.
-
-The `.env` file is excluded from Git version control.
-
-Never commit:
+Instead of:
 
 ```text
-.env
+Website → Raw HTML → LLM
 ```
 
-to the public repository.
+the system uses:
 
-## Assignment Requirements Covered
+```text
+Website
+   ↓
+Rendered HTML
+   ↓
+Cleaning
+   ↓
+Deterministic Extraction
+   ↓
+Compact Evidence
+   ↓
+LLM
+```
 
-The implementation covers the major technical requirements:
+This reduces unnecessary token usage and helps avoid request-size and token-per-minute limits.
 
-* Automated browsing/content retrieval
-* Dynamic JavaScript-compatible crawling
-* Homepage and relevant subpage discovery
-* HTML preprocessing
-* Token/context optimization
-* LLM-based company intelligence extraction
-* Structured output
-* Public contact extraction
-* Leadership/team extraction
-* LinkedIn URL extraction
-* Confidence scoring
-* Error handling
-* 404 handling
-* Timeout handling
-* Pipeline continuation after failures
-* Sample JSON output
-* Modular Python architecture
+The project controls the amount of information sent to the LLM using:
 
-## Author
+```env
+LLM_MAX_INPUT_CHARS=7500
+LLM_MAX_PEOPLE=20
+LLM_MAX_EMAILS=25
+LLM_MAX_LINKEDIN=30
+LLM_MAX_SOURCES=15
+LLM_MAX_SEARCH=15
+```
 
-A N SUPRIYA
+---
+
+# Cost Tracking
+
+The project records:
+
+```text
+Prompt tokens
+Completion tokens
+Total tokens
+Estimated cost
+```
+
+Example:
+
+```text
+Prompt tokens: 2200
+Completion tokens: 300
+Total tokens: 2500
+Estimated cost: $0.0003
+```
+
+The exact values depend on the pages crawled and the LLM response.
+
+---
+
+# Resilience
+
+The system is designed so that a single failure does not stop the complete process.
+
+The pipeline can handle situations such as:
+
+- 404 pages
+- page timeouts
+- redirects
+- blocked pages
+- missing content
+- JavaScript errors
+- broken links
+- sitemap failures
+- individual company failures
+- LLM request failures
+
+For example:
+
+```text
+postman.com     ✓
+supabase.com    ✓
+vapi.ai         ✗
+```
+
+The successful companies can still be processed and stored.
+
+---
+
+# Anti-Hallucination Design
+
+The project uses a combination of deterministic extraction and LLM reasoning.
+
+The deterministic extractor obtains information directly from public website evidence.
+
+For example:
+
+```text
+Email
+LinkedIn URL
+Name
+Role
+Source URL
+```
+
+The LLM is then used for:
+
+```text
+Company overview
+Industry classification
+ICP identification
+Normalization
+Reasoning
+Confidence estimation
+```
+
+This architecture reduces the possibility of the LLM inventing information that does not appear in the collected evidence.
+
+---
+
+# Validation
+
+Before running the project, use:
+
+```powershell
+python -m py_compile main.py src\crawler.py src\extractor.py src\search.py src\llm.py src\pipeline.py src\schemas.py
+```
+
+If there is no output, the files passed the Python syntax check.
+
+---
+
+# Testing
+
+## Test one company
+
+```powershell
+python main.py postman.com
+```
+
+---
+
+## Test multiple companies
+
+```powershell
+python main.py postman.com supabase.com vapi.ai
+```
+
+---
+
+## View the output
+
+```powershell
+Get-Content data\output.json
+```
+
+---
+
+## View formatted JSON
+
+```powershell
+Get-Content data\output.json | ConvertFrom-Json | ConvertTo-Json -Depth 10
+```
+
+---
+
+# Troubleshooting
+
+## Playwright browser is not installed
+
+Run:
+
+```powershell
+python -m playwright install chromium
+```
+
+---
+
+## Groq API Error
+
+Check your `.env` file:
+
+```env
+GROQ_API_KEY=YOUR_GROQ_API_KEY
+```
+
+Make sure the `.env` file is located in the project root.
+
+---
+
+## Request Too Large
+
+Reduce the LLM limits:
+
+```env
+LLM_MAX_INPUT_CHARS=5000
+LLM_MAX_PEOPLE=10
+LLM_MAX_EMAILS=15
+LLM_MAX_LINKEDIN=20
+LLM_MAX_SOURCES=10
+LLM_MAX_SEARCH=8
+```
+
+You can also reduce:
+
+```env
+MAX_CRAWL_PAGES=20
+```
+
+---
+
+## Very Few Pages Are Being Crawled
+
+Increase:
+
+```env
+MAX_CRAWL_PAGES=50
+```
+
+or:
+
+```powershell
+$env:MAX_CRAWL_PAGES="75"
+python main.py postman.com
+```
+
+---
+
+## Leadership Information Is Missing
+
+Some companies do not publish leadership information directly on their website.
+
+The agent can attempt to use:
+
+```text
+/team
+/leadership
+/founders
+/about
+/press
+```
+
+and optional external search enrichment.
+
+---
+
+## Emails Are Missing
+
+A company may simply not expose public email addresses.
+
+The agent does not invent private email addresses.
+
+Possible public sources include:
+
+```text
+/contact
+/contact-us
+/company/contact-us
+/press
+```
+
+---
+
+# Assignment Requirements Covered
+
+| Requirement | Implementation |
+|---|---|
+| Company domains as input | `main.py` |
+| Automated browsing | Playwright |
+| JavaScript-rendered content | Playwright Chromium |
+| Homepage crawling | Crawler |
+| Relevant subpages | Page prioritization |
+| DOM preprocessing | `extractor.py` |
+| Raw HTML not directly sent to LLM | Compact evidence |
+| Company overview | Groq LLM |
+| Target audience / ICP | Groq LLM |
+| Public emails | Deterministic extraction |
+| Leadership/team | Extractor + LLM |
+| LinkedIn URLs | Extractor + search |
+| Confidence score | Structured output |
+| Failure resilience | Error handling |
+| Token optimization | Evidence limits |
+| Cost tracking | Token/cost calculation |
+| Multi-step workflow | Crawl → Extract → Search → LLM → Merge |
+
+---
+
+# Limitations
+
+The system depends on publicly accessible information.
+
+It cannot guarantee that every company website provides:
+
+- leadership information
+- public emails
+- LinkedIn URLs
+- complete team information
+- accessible sitemap data
+
+Some websites may also block automated crawling or require login.
+
+Only information available from permitted public sources should be considered valid output.
+
+---
+
+# Future Improvements
+
+Possible future enhancements include:
+
+- Better LinkedIn discovery
+- More advanced search integration
+- Website page classification
+- Persistent crawl cache
+- Parallel crawling
+- Database storage
+- Streamlit dashboard
+- CSV / Excel export
+- REST API
+- Automated testing
+- GitHub Actions CI/CD
+- More advanced observability
+- Crawl checkpoint and resume support
+
+---
+
+# GitHub Workflow
+
+After making changes locally, check the status:
+
+```powershell
+git status
+```
+
+Add the changes:
+
+```powershell
+git add .
+```
+
+Commit the changes:
+
+```powershell
+git commit -m "Update AI company intelligence agent"
+```
+
+Push the changes:
+
+```powershell
+git push
+```
+
+Your local changes do not automatically synchronize with GitHub. Changes need to be committed and pushed to update the remote repository. :contentReference[oaicite:2]{index=2}
+
+---
+
+# Repository
+
+GitHub repository:
+
+```text
+https://github.com/ansupriya19/AI_AGENT
+```
+
+---
+
+# Author
+
+**A N SUPRIYA**
 
 B.E. Computer Science and Engineering (AI & ML)
 
-Global Academy of Technology
+---
 
-2026
+# License
+
+This project can be distributed under a license of the author's choice.
+
+If publishing it as open source, add an appropriate `LICENSE` file to the repository.
+
+---
+
+# Quick Start
+
+```powershell
+git clone https://github.com/ansupriya19/AI_AGENT.git
+
+cd AI_AGENT
+
+python -m venv venv
+
+.\venv\Scripts\Activate.ps1
+
+python -m pip install -r requirements.txt
+
+python -m playwright install chromium
+```
+
+Create `.env`:
+
+```env
+GROQ_API_KEY=YOUR_GROQ_API_KEY
+GROQ_MODEL=openai/gpt-oss-20b
+
+MAX_CRAWL_PAGES=50
+ENABLE_EXTERNAL_SEARCH=true
+
+LLM_MAX_INPUT_CHARS=7500
+LLM_MAX_PEOPLE=20
+LLM_MAX_EMAILS=25
+LLM_MAX_LINKEDIN=30
+LLM_MAX_SOURCES=15
+LLM_MAX_SEARCH=15
+
+GROQ_INPUT_PRICE_PER_1M=0.075
+GROQ_OUTPUT_PRICE_PER_1M=0.30
+```
+
+Run:
+
+```powershell
+python main.py postman.com supabase.com vapi.ai
+```
+
+Generated output:
+
+
+data/output.json
+```
+
+---
+
+# Project Goal
+
+The goal of this project is to build a practical autonomous company-intelligence system that can discover, extract, validate, enrich, and structure publicly available company information with minimal manual intervention.
