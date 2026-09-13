@@ -1,4 +1,212 @@
 {
-  "generated_at": "2026-09-13T08:35:34.997896Z",
-  "companies": []
+  "generated_at": "2026-09-13T08:50:26.850944Z",
+  "companies": [
+    {
+      "company_name": "Postman, Inc.",
+      "overview": "Postman is a leading API platform that enables developers to design, build, test, and manage APIs and services. The platform offers a suite of tools including an API designer, mock servers, SDK generator, automated testing, monitoring, and AI-powered features such as the AI Engineer and Agent Mode. Postman supports enterprise-scale API governance, lifecycle management, and integration with CI/CD pipelines, providing a comprehensive solution for API development and operations.",
+      "industry": "Software – API Development & Management",
+      "icp": [
+        "Developers",
+        "Engineering teams",
+        "API architects",
+        "DevOps teams",
+        "Enterprise software organizations"
+      ],
+      "emails": [
+        "help@postman.com",
+        "info-jp@postman.com",
+        "info@postman.com",
+        "accommodations@postman.com"
+      ],
+      "linkedin_urls": [
+        "https://www.linkedin.com/company/postman-platform"
+      ],
+      "source_urls": [
+        "https://postman.com/",
+        "https://postman.com/ai/contact-sales",
+        "https://postman.com/bteam5",
+        "https://postman.com/company/contact-us",
+        "https://postman.com/dtwteam",
+        "https://postman.com/emteam",
+        "https://postman.com/eteam9",
+        "https://postman.com/fp-team",
+        "https://postman.com/gold-resonance-4304/incontact-user-hub/overview",
+        "https://postman.com/h5team",
+        "https://postman.com/hdteam",
+        "https://postman.com/herteam",
+        "https://postman.com/itteam7",
+        "https://postman.com/jp/ai/contact-sales",
+        "https://postman.com/jp/company/contact-sales",
+        "https://postman.com/jp/company/contact-us",
+        "https://postman.com/km-team",
+        "https://postman.com/krzteam",
+        "https://postman.com/mmpteam",
+        "https://postman.com/n3team",
+        "https://postman.com/nteam9",
+        "https://postman.com/otteam",
+        "https://postman.com/pcteam",
+        "https://postman.com/steam4",
+        "https://postman.com/team-05",
+        "https://postman.com/team-44",
+        "https://postman.com/team-rg",
+        "https://postman.com/team-t",
+        "https://postman.com/team18",
+        "https://postman.com/team3px",
+        "https://postman.com/team664",
+        "https://postman.com/teama8",
+        "https://postman.com/teamdev",
+        "https://postman.com/teamg7",
+        "https://postman.com/teamh0",
+        "https://postman.com/teamh5",
+        "https://postman.com/teamjif",
+        "https://postman.com/teamkit",
+        "https://postman.com/teamma",
+        "https://postman.com/teamn7",
+        "https://postman.com/teampk",
+        "https://postman.com/teamt1",
+        "https://postman.com/teamx7",
+        "https://postman.com/teamxl",
+        "https://postman.com/teamz8",
+        "https://postman.com/vteam2",
+        "https://postman.com/vtpteam",
+        "https://postman.com/w5team",
+        "https://postman.com/wa-team",
+        "https://postman.com/yk-team"
+      ],
+      "team": [
+        {
+                "name": "Abhinav Asthana",
+                "role": "CEO/Co-Founder",
+                "linkedin_url": "https://www.linkedin.com/in/abhinavasthana"
+            },
+            {
+                "name": "Ankit Sobti",
+                "role": "CTO/Co-Founder",
+                "linkedin_url": "https://www.linkedin.com/in/ankit-sobti"
+            },
+            {
+                "name": "Abhijit Kane",
+                "role": "Product Architect/Co-Founder",
+                "linkedin_url": "https://in.linkedin.com/in/abhijitkane"
+            }
+      ],
+      "confidence": 0.8,
+      "usage": {
+        "prompt_tokens": 2059,
+        "completion_tokens": 372,
+        "total_tokens": 2431,
+        "estimated_cost_usd": 0.000266025
+      }
+    },
+    {
+      "company_name": "Superbase Software Ltd",
+      "overview": "Superbase Software Ltd is a pioneer in database management solutions with over 35 years of experience. They offer a range of products including Superbase Next Generation (NG), Superbase NG IDE, Superbase NG Personal, and Superbase Classic, aimed at helping businesses build and manage advanced database applications across desktop, web, and mobile platforms.",
+      "industry": "Database Management Systems",
+      "icp": [
+        "Enterprise IT departments",
+        "Software developers",
+        "Business application developers",
+        "Organizations requiring cross-platform database solutions"
+      ],
+      "emails": [
+        "sales@superbase.co.uk",
+        "legal@supabase.com",
+        "privacy@supabase.com",
+        "abuse@supabase.com",
+        "security@supabase.com",
+        "help-events@supabase.com"
+      ],
+      "linkedin_urls": [
+        "https://www.linkedin.com/company/superbase-software"
+      ],
+      "source_urls": [
+        "https://superbase.com/",
+        "https://superbase.com/2011/08",
+        "https://superbase.com/2011/10",
+        "https://superbase.com/2012/02",
+        "https://superbase.com/2012/11",
+        "https://superbase.com/2013/02",
+        "https://superbase.com/2013/03",
+        "https://superbase.com/2013/08",
+        "https://superbase.com/2014/01",
+        "https://superbase.com/2014/02",
+        "https://superbase.com/2014/03",
+        "https://superbase.com/2014/11",
+        "https://superbase.com/2015/04",
+        "https://superbase.com/2016/05",
+        "https://superbase.com/2016/07",
+        "https://superbase.com/2016/09",
+        "https://superbase.com/2016/10",
+        "https://superbase.com/2017/07",
+        "https://superbase.com/2020/05",
+        "https://superbase.com/2020/12",
+        "https://superbase.com/2021/01",
+        "https://superbase.com/2021/02",
+        "https://superbase.com/2021/03",
+        "https://superbase.com/2021/04",
+        "https://superbase.com/2021/11",
+        "https://superbase.com/2021/12",
+        "https://superbase.com/2022/01",
+        "https://superbase.com/361-2",
+        "https://superbase.com/about",
+        "https://superbase.com/contact",
+        "https://superbase.com/news",
+        "https://superbase.com/official-superbase-purchase-press-release",
+        "https://superbase.com/privacy",
+        "https://superbase.com/products",
+        "https://superbase.com/products/simpol-multi-user-database-engine",
+        "https://superbase.com/products/superbase-classic",
+        "https://superbase.com/products/superbase-classic/superbase-classic-features",
+        "https://superbase.com/products/superbase-classic/superbase-classic-new-features",
+        "https://superbase.com/products/superbase-classic/superbase-version-comparison",
+        "https://superbase.com/products/superbase-ng-professional",
+        "https://superbase.com/realbasics-ppsr-component-production-databases",
+        "https://superbase.com/simpol-launches-product-softdata-internet",
+        "https://superbase.com/simpol-product-line-ownership",
+        "https://superbase.com/superbase-customers-starting-transition-sbng",
+        "https://superbase.com/superbases-owner-contracts-simpol-management",
+        "https://superbase.com/support",
+        "https://superbase.com/tag/ip",
+        "https://superbase.com/tag/products",
+        "https://superbase.com/tag/sales",
+        "https://superbase.com/updated-product-lineup"
+      ],
+      "team": [
+        {
+          "name": "David King",
+          "role": "CEO",
+          "linkedin_url": null
+        },
+        {
+                "name": "Tracy Lane",
+                "role": "General Counsel",
+                "linkedin_url": null
+            }
+      ],
+      "confidence": 0.9,
+      "usage": {
+        "prompt_tokens": 2155,
+        "completion_tokens": 362,
+        "total_tokens": 2517,
+        "estimated_cost_usd": 0.000270225
+      }
+    },
+    {
+      "company_name": "vape.ai",
+      "confidence": 0.85,
+      "emails": [],
+      "icp": [],
+      "industry": "",
+      "linkedin_urls": [],
+      "overview": "",
+      "source_urls": [],
+      "team": [],
+      "usage": {
+        "prompt_tokens": 548,
+        "completion_tokens": 69,
+        "total_tokens": 617,
+        "estimated_cost_usd": 6.18e-05
+      }
+    }
+  ]
 }
