@@ -15,8 +15,8 @@ DEFAULT_DOMAINS = ['postman.com', 'supabase.com', 'vapi.ai']
 
 def run_pipeline(domains: List[str], output_path: str='data/output.json', use_search: bool=True) -> BatchOutput:
     print('=' * 70)
-    print('🚀 AUTONOMOUS LEAD ENRICHMENT AGENT')
-    print(f"🎯 Target Domains ({len(domains)}): {', '.join(domains)}")
+    print(' AUTONOMOUS LEAD ENRICHMENT AGENT')
+    print(f" Target Domains ({len(domains)}): {', '.join(domains)}")
     print('=' * 70)
     crawler = WebCrawler(timeout=15.0, max_subpages=4)
     llm = LLMExtractor()
@@ -80,12 +80,12 @@ def run_pipeline(domains: List[str], output_path: str='data/output.json', use_se
                     score += 0.07
                 enriched.confidence = min(1.0, round(score, 2))
             enriched_companies.append(enriched)
-            print(f'  ✅ Finished {domain}:')
+            print(f'   Finished {domain}:')
             print(f'     Company: {enriched.company_name} | Industry: {enriched.industry}')
             print(f'     Leadership: {len(enriched.team)} members | Emails: {len(enriched.emails)}')
             print(f'     Confidence: {enriched.confidence * 100:.0f}% | Tokens: {enriched.usage.total_tokens:,} (${enriched.usage.estimated_cost_usd:.6f})')
         except Exception as e:
-            print(f'  ❌ Error processing {domain}: {e}')
+            print(f'   Error processing {domain}: {e}')
             from src.schemas import UsageMetrics
             fallback_company = EnrichedCompany(company_name=domain.split('.')[0].capitalize(), overview=f'{domain} is an enterprise web application platform.', industry='Software', icp=['Developers and IT Professionals'], emails=[], linkedin_urls=[], source_urls=[f'https://{domain}'], team=[], confidence=0.3, usage=UsageMetrics(prompt_tokens=0, completion_tokens=0, total_tokens=0, estimated_cost_usd=0.0))
             enriched_companies.append(fallback_company)
@@ -94,8 +94,8 @@ def run_pipeline(domains: List[str], output_path: str='data/output.json', use_se
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(json.dumps(batch_output.model_dump(), indent=2, ensure_ascii=False))
     print('\n' + '=' * 70)
-    print(f'🎉 PIPELINE COMPLETED SUCCESSFULLY!')
-    print(f'📁 Structured Results Saved To: {output_path}')
+    print(f' PIPELINE COMPLETED SUCCESSFULLY!')
+    print(f' Structured Results Saved To: {output_path}')
     print('=' * 70)
     total_tokens = sum((c.usage.total_tokens for c in enriched_companies))
     total_cost = sum((c.usage.estimated_cost_usd for c in enriched_companies))
