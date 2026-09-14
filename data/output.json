@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "generated_at": "2026-09-13T08:50:26.850944Z",
   "companies": [
     {
@@ -11,17 +12,34 @@
         "API architects",
         "DevOps teams",
         "Enterprise software organizations"
+=======
+  "generated_at": "2026-09-14T07:17:37.365005+00:00",
+  "companies": [
+    {
+      "company_name": "Postman",
+      "overview": "Postman provides specialized technology solutions and platforms for businesses and developers.",
+      "industry": "Software",
+      "icp": [
+        "Engineering teams",
+        "Developers",
+        "Enterprises"
+>>>>>>> 701152b (Improve crawler extraction and pipeline)
       ],
       "emails": [
         "help@postman.com",
         "info-jp@postman.com",
+<<<<<<< HEAD
         "info@postman.com",
         "accommodations@postman.com"
+=======
+        "info@postman.com"
+>>>>>>> 701152b (Improve crawler extraction and pipeline)
       ],
       "linkedin_urls": [
         "https://www.linkedin.com/company/postman-platform"
       ],
       "source_urls": [
+<<<<<<< HEAD
         "https://postman.com/",
         "https://postman.com/ai/contact-sales",
         "https://postman.com/bteam5",
@@ -210,3 +228,129 @@
     }
   ]
 }
+=======
+        "https://www.postman.com/",
+        "https://www.postman.com/company/contact-sales/",
+        "https://www.postman.com/company/contact-us/",
+        "https://www.postman.com/company/press-media/"
+      ],
+      "team": [
+        {
+          "name": "Abhinav Asthana",
+          "role": "CEO & Co-Founder",
+          "linkedin_url": "https://www.linkedin.com/in/abhinavasthana"
+        },
+        {
+          "name": "Ankit Sobti",
+          "role": "Co-Founder & CTO",
+          "linkedin_url": "https://www.linkedin.com/in/ankitsobti"
+        },
+        {
+          "name": "Abhijit Kane",
+          "role": "Co-Founder",
+          "linkedin_url": "https://www.linkedin.com/in/abhijitkane"
+        }
+      ],
+      "confidence": 1.0,
+      "usage": {
+        "prompt_tokens": 1600,
+        "completion_tokens": 180,
+        "total_tokens": 1780,
+        "estimated_cost_usd": 0.0010862
+      }
+    },
+    {
+      "company_name": "Supabase",
+      "overview": "Supabase provides specialized technology solutions and platforms for businesses and developers.",
+      "industry": "Software",
+      "icp": [
+        "Engineering teams",
+        "Developers",
+        "Enterprises"
+      ],
+      "emails": [
+        "abuse@supabase.com",
+        "help-events@supabase.com",
+        "legal@supabase.com",
+        "privacy@supabase.com",
+        "security@supabase.com"
+      ],
+      "linkedin_urls": [
+        "https://www.linkedin.com/company/supabase"
+      ],
+      "source_urls": [
+        "https://supabase.com",
+        "https://supabase.com/customers/chatbase",
+        "https://supabase.com/support",
+        "https://supabase.com/contact/sales",
+        "https://supabase.com/contact-us"
+      ],
+      "team": [
+        {
+          "name": "Paul Copplestone",
+          "role": "CEO & Co-Founder",
+          "linkedin_url": "https://www.linkedin.com/in/paulcopplestone"
+        },
+        {
+          "name": "Ant Wilson",
+          "role": "Co-Founder & CTO",
+          "linkedin_url": "https://www.linkedin.com/in/antwilson"
+        },
+        {
+          "name": "Tracy Lane",
+          "role": "General Counsel",
+          "linkedin_url": "https://www.linkedin.com/in/tracylane"
+        }
+      ],
+      "confidence": 1.0,
+      "usage": {
+        "prompt_tokens": 2566,
+        "completion_tokens": 180,
+        "total_tokens": 2746,
+        "estimated_cost_usd": 0.00165614
+      }
+    },
+    {
+      "company_name": "Vapi",
+      "overview": "Vapi provides specialized technology solutions and platforms for businesses and developers.",
+      "industry": "Software",
+      "icp": [
+        "Engineering teams",
+        "Developers",
+        "Enterprises"
+      ],
+      "emails": [
+        "support@vapi.ai"
+      ],
+      "linkedin_urls": [
+        "https://www.linkedin.com/company/vapi-ai"
+      ],
+      "source_urls": [
+        "https://vapi.ai",
+        "https://docs.vapi.ai/support",
+        "https://vapi.ai/sales",
+        "https://vapi.ai/pricing"
+      ],
+      "team": [
+        {
+          "name": "Jordan Singer",
+          "role": "CEO & Co-Founder",
+          "linkedin_url": "https://www.linkedin.com/in/ibuildmyideas"
+        },
+        {
+          "name": "Nikhil Gupta",
+          "role": "Co-Founder & CTO",
+          "linkedin_url": "https://www.linkedin.com/in/nikhilgupta"
+        }
+      ],
+      "confidence": 1.0,
+      "usage": {
+        "prompt_tokens": 1959,
+        "completion_tokens": 180,
+        "total_tokens": 2139,
+        "estimated_cost_usd": 0.00129801
+      }
+    }
+  ]
+}
+>>>>>>> 701152b (Improve crawler extraction and pipeline)

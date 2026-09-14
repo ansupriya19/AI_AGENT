@@ -1,746 +1,200 @@
+"""
+Context Pre-Processing & Token Optimization Engine (Step 2)
+Strips raw HTML trees, boilerplates, styles, SVGs, and scripts.
+Extracts high-signal text, emails, meta tags, and structured DOM signals to minimize LLM token spend.
+"""
+
 import re
-from typing import Dict, List, Tuple
-from urllib.parse import urljoin, urlparse
-
-from bs4 import BeautifulSoup
+from typing import Dict, List, Optional, Set, Tuple
+from bs4 import BeautifulSoup, Comment
 
 
-EMAIL_PATTERN = re.compile(
-    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
-    re.IGNORECASE,
+# Regular expressions for email and LinkedIn extraction
+EMAIL_REGEX = re.compile(
+    r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+",
+    re.IGNORECASE
 )
 
-LINKEDIN_PATTERN = re.compile(
-    r"https?://(?:www\.)?linkedin\.com/"
-    r"(?:in|company)/[A-Za-z0-9._/?=&%-]+",
-    re.IGNORECASE,
+LINKEDIN_COMPANY_REGEX = re.compile(
+    r"https?://(?:www\.)?linkedin\.com/company/[a-zA-Z0-9_.-]+",
+    re.IGNORECASE
 )
 
-ROLE_PATTERNS = [
-    r"\bCEO\b",
-    r"\bCTO\b",
-    r"\bCFO\b",
-    r"\bCOO\b",
-    r"\bCPO\b",
-    r"\bCMO\b",
-    r"\bCISO\b",
-    r"\bChief Executive Officer\b",
-    r"\bChief Technology Officer\b",
-    r"\bChief Financial Officer\b",
-    r"\bChief Operating Officer\b",
-    r"\bChief Product Officer\b",
-    r"\bChief Marketing Officer\b",
-    r"\bProduct Architect\b",
-    r"\bFounder\b",
-    r"\bCo-Founder\b",
-    r"\bCofounder\b",
-    r"\bPresident\b",
-    r"\bVice President\b",
-    r"\bVP\b",
-    r"\bDirector\b",
-    r"\bHead of [A-Za-z &/-]+\b",
-    r"\bGeneral Manager\b",
-    r"\bManaging Director\b",
-]
+LINKEDIN_PERSONAL_REGEX = re.compile(
+    r"https?://(?:www\.)?linkedin\.com/in/[a-zA-Z0-9_.-]+",
+    re.IGNORECASE
+)
 
-ROLE_REGEX = re.compile(
-    "|".join(ROLE_PATTERNS),
-    re.IGNORECASE,
+# Common noisy extensions and blacklisted emails (e.g., png, woff, example.com)
+INVALID_EMAIL_EXTENSIONS = (
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".css", ".js", ".woff", ".woff2"
 )
 
 
-def normalize_email(email: str) -> str:
-    email = email.strip().lower()
-
-    # Remove common HTML/entity garbage
-    email = email.replace(
-        "u003e",
-        ""
-    )
-
-    email = email.replace(
-        "u003c",
-        ""
-    )
-
-    email = email.replace(
-        "&gt;",
-        ""
-    )
-
-    email = email.replace(
-        "&lt;",
-        ""
-    )
-
-    return email
-
-
-def normalize_linkedin_url(url: str) -> str:
-
-    if not url:
-        return ""
-
-    if url.startswith("//"):
-        url = "https:" + url
-
-    if not url.startswith(
-        ("http://", "https://")
-    ):
-        url = "https://" + url
-
-    parsed = urlparse(url)
-
-    if "linkedin.com" not in (
-        parsed.netloc or ""
-    ).lower():
-        return ""
-
-    path = parsed.path.rstrip("/")
-
-    return (
-        "https://www.linkedin.com"
-        + path
-    )
-
-
-def clean_text(html: str) -> str:
-
-    soup = BeautifulSoup(
-        html,
-        "lxml"
-    )
-
-    for element in soup(
-        [
-            "script",
-            "style",
-            "noscript",
-            "svg",
-            "canvas",
-            "iframe",
-        ]
-    ):
-        element.decompose()
-
-    text = soup.get_text(
-        " ",
-        strip=True
-    )
-
-    text = re.sub(
-        r"\s+",
-        " ",
-        text
-    )
-
-    return text.strip()
-
-
-def extract_emails(
-    html: str
-) -> List[str]:
-
-    soup = BeautifulSoup(
-        html,
-        "lxml"
-    )
-
-    emails = set()
-
-    for match in EMAIL_PATTERN.findall(
-        html
-    ):
-        email = normalize_email(
-            match
-        )
-
-        if EMAIL_PATTERN.fullmatch(
-            email
-        ):
-            emails.add(email)
-
-    for anchor in soup.find_all(
-        "a",
-        href=True
-    ):
-
-        href = anchor.get(
-            "href",
-            ""
-        ).strip()
-
-        if href.lower().startswith(
-            "mailto:"
-        ):
-
-            email = href[
-                7:
-            ].split("?")[0]
-
-            email = normalize_email(
-                email
-            )
-
-            if EMAIL_PATTERN.fullmatch(
-                email
-            ):
-                emails.add(email)
-
-    return sorted(emails)
-
-
-def extract_linkedin_urls(
-    html: str,
-    base_url: str
-) -> List[str]:
-
-    soup = BeautifulSoup(
-        html,
-        "lxml"
-    )
-
-    urls = set()
-
-    for match in LINKEDIN_PATTERN.findall(
-        html
-    ):
-
-        normalized = normalize_linkedin_url(
-            match
-        )
-
-        if normalized:
-            urls.add(normalized)
-
-    for anchor in soup.find_all(
-        "a",
-        href=True
-    ):
-
-        href = anchor.get(
-            "href",
-            ""
-        ).strip()
-
-        absolute = urljoin(
-            base_url,
-            href
-        )
-
-        normalized = normalize_linkedin_url(
-            absolute
-        )
-
-        if normalized:
-            urls.add(normalized)
-
-    return sorted(urls)
-
-
-def _looks_like_name(
-    text: str
-) -> bool:
-
-    text = re.sub(
-        r"\s+",
-        " ",
-        text
-    ).strip()
-
-    if not text:
-        return False
-
-    if len(text) < 4 or len(text) > 100:
-        return False
-
-    words = text.split()
-
-    if not 2 <= len(words) <= 6:
-        return False
-
-    bad_phrases = {
-        "learn more",
-        "read more",
-        "view profile",
-        "connect with",
-        "follow us",
-        "contact us",
-        "our team",
-        "linkedin",
-        "click here",
-    }
-
-    if text.lower() in bad_phrases:
-        return False
-
-    return True
-
-
-def _extract_role(
-    text: str
-) -> str:
-
-    text = re.sub(
-        r"\s+",
-        " ",
-        text
-    ).strip()
-
-    # First try the complete professional title
-    matches = ROLE_REGEX.findall(
-        text
-    )
-
-    if not matches:
-        return ""
-
-    # Preserve the best descriptive role.
-    roles = []
-
-    for match in matches:
-
-        role = (
-            match
-            if isinstance(match, str)
-            else match[0]
-        )
-
-        role = re.sub(
-            r"\s+",
-            " ",
-            role
-        ).strip()
-
-        if role:
-            roles.append(role)
-
-    if not roles:
-        return ""
-
-    # Prefer combined Founder roles
-    for role in roles:
-
-        if (
-            "founder" in role.lower()
-            and (
-                "ceo" in role.lower()
-                or "cto" in role.lower()
-                or "architect" in role.lower()
-            )
-        ):
-            return role
-
-    # Otherwise return first match
-    return roles[0]
-
-
-def _extract_person_name(
-    anchor_text: str,
-    context_text: str
-) -> str:
-
-    anchor_text = re.sub(
-        r"\s+",
-        " ",
-        anchor_text
-    ).strip()
-
-    context_text = re.sub(
-        r"\s+",
-        " ",
-        context_text
-    ).strip()
-
-    if _looks_like_name(
-        anchor_text
-    ):
-        return anchor_text
-
-    # Look for:
-    # Name, Role
-    # Name - Role
-    pattern = re.compile(
-        r"\b("
-        r"[A-Z][A-Za-z.'-]+"
-        r"(?:\s+[A-Z][A-Za-z.'-]+){1,5}"
-        r")"
-        r"\s*(?:,|-|–|—)\s*"
-        r"(?:CEO|CTO|CFO|COO|CPO|"
-        r"Founder|Co-Founder|Cofounder|"
-        r"Product Architect|President|"
-        r"Director|VP|Head|Chief)",
-        re.IGNORECASE
-    )
-
-    match = pattern.search(
-        context_text
-    )
-
-    if match:
-
-        candidate = match.group(
-            1
-        ).strip()
-
-        if _looks_like_name(
-            candidate
-        ):
-            return candidate
-
-    return ""
-
-
-def _get_context(
-    anchor
-) -> str:
-
-    pieces = []
-
-    # Anchor
-    anchor_text = anchor.get_text(
-        " ",
-        strip=True
-    )
-
-    if anchor_text:
-        pieces.append(
-            anchor_text
-        )
-
-    # Parent
-    parent = anchor.parent
-
-    if parent:
-
-        text = parent.get_text(
-            " ",
-            strip=True
-        )
-
-        if text:
-            pieces.append(text)
-
-    # Grandparent
-    if parent and parent.parent:
-
-        text = parent.parent.get_text(
-            " ",
-            strip=True
-        )
-
-        if text:
-            pieces.append(text)
-
-    # Nearby previous/next elements
-    current = anchor
-
-    for _ in range(3):
-
-        previous = (
-            current.find_previous(
-                string=True
-            )
-        )
-
-        if previous:
-            pieces.append(
-                str(previous)
-            )
-
-        current = previous.parent \
-            if getattr(
-                previous,
-                "parent",
-                None
-            ) else None
-
-        if current is None:
-            break
-
-    combined = " ".join(
-        pieces
-    )
-
-    combined = re.sub(
-        r"\s+",
-        " ",
-        combined
-    ).strip()
-
-    return combined
-
-
-def extract_people_evidence(
-    html: str,
-    page_url: str
-) -> List[dict]:
-
-    soup = BeautifulSoup(
-        html,
-        "lxml"
-    )
-
-    people = []
-
-    for anchor in soup.find_all(
-        "a",
-        href=True
-    ):
-
-        href = anchor.get(
-            "href",
-            ""
-        ).strip()
-
-        if "linkedin.com/in/" not in (
-            href.lower()
-        ):
-            continue
-
-        linkedin_url = normalize_linkedin_url(
-            urljoin(
-                page_url,
-                href
-            )
-        )
-
-        if not linkedin_url:
-            continue
-
-        anchor_text = re.sub(
-            r"\s+",
-            " ",
-            anchor.get_text(
-                " ",
-                strip=True
-            )
-        ).strip()
-
-        context = _get_context(
-            anchor
-        )
-
-        name = _extract_person_name(
-            anchor_text,
-            context
-        )
-
-        role = _extract_role(
-            context
-        )
-
-        # Second pass: examine nearby headings,
-        # cards and text around the link.
-        if not role:
-
-            parent = anchor.parent
-
-            for _ in range(4):
-
-                if not parent:
-                    break
-
-                block = parent.get_text(
-                    " ",
-                    strip=True
-                )
-
-                role = _extract_role(
-                    block
-                )
-
-                if role:
-                    break
-
-                parent = parent.parent
-
-        if not name:
-
-            name = _extract_person_name(
-                anchor_text,
-                context
-            )
-
-        people.append(
-            {
-                "name": name,
-                "role": role,
-                "linkedin_url": linkedin_url,
-                "source_url": page_url,
-            }
-        )
-
-    return people
-
-
-def _deduplicate_people(
-    people: List[dict]
-) -> List[dict]:
-
-    result = []
-    seen = set()
-
-    for person in people:
-
-        linkedin = str(
-            person.get(
-                "linkedin_url"
-            )
-            or ""
-        ).lower()
-
-        name = str(
-            person.get(
-                "name"
-            )
-            or ""
-        ).lower()
-
-        key = (
-            linkedin,
-            name
-        )
-
-        if key in seen:
-            continue
-
-        seen.add(key)
-
-        result.append(
-            person
-        )
-
-    return result
-
-
-def _deduplicate_urls(
-    urls
-) -> List[str]:
-
-    result = []
-    seen = set()
-
-    for url in urls:
-
-        url = str(
-            url
-        ).strip()
-
-        if not url:
-            continue
-
-        key = url.rstrip(
-            "/"
-        ).lower()
-
-        if key in seen:
-            continue
-
-        seen.add(key)
-
-        result.append(
-            url
-        )
-
-    return sorted(
-        result
-    )
-
-
-def process_pages(
-    pages: Dict[str, str]
-) -> Tuple[
-    str,
-    List[str],
-    List[str],
-    List[dict],
-    List[str],
-]:
-
-    if not pages:
-
-        return (
-            "",
-            [],
-            [],
-            [],
-            []
-        )
-
-    all_text = []
-    all_emails = set()
-    all_linkedin = set()
-    all_people = []
-    source_urls = []
-
-    for page_url, html in pages.items():
-
+class ContentExtractor:
+    """Pre-processes raw HTML pages into optimized, clean text and extracted metadata."""
+
+    @staticmethod
+    def extract_emails_and_links(html: str) -> Tuple[List[str], Optional[str], List[str]]:
+        """
+        Extracts verified contact emails, company LinkedIn URL, and personal LinkedIn URLs directly from HTML.
+        """
+        emails: Set[str] = set()
+        personal_linkedins: Set[str] = set()
+        company_linkedin: Optional[str] = None
+
+        soup = BeautifulSoup(html, "html.parser")
+
+        # 1. Search mailto: links
+        for a_tag in soup.find_all("a", href=True):
+            href = a_tag["href"].strip()
+            if href.lower().startswith("mailto:"):
+                clean_email = href.split("?")[0].replace("mailto:", "").strip()
+                if EMAIL_REGEX.match(clean_email):
+                    emails.add(clean_email.lower())
+            
+            # Check LinkedIn links in anchor tags
+            if "linkedin.com/company" in href:
+                match = LINKEDIN_COMPANY_REGEX.search(href)
+                if match and not company_linkedin:
+                    company_linkedin = match.group(0).rstrip("/")
+            elif "linkedin.com/in/" in href:
+                match = LINKEDIN_PERSONAL_REGEX.search(href)
+                if match:
+                    personal_linkedins.add(match.group(0).rstrip("/"))
+
+        # 2. Search regex across text
+        text = soup.get_text(separator=" ")
+        for email in EMAIL_REGEX.findall(text):
+            email_lower = email.lower().strip()
+            if not any(email_lower.endswith(ext) for ext in INVALID_EMAIL_EXTENSIONS):
+                if not any(skip in email_lower for skip in ["sentry", "wixpress", "example.com", "schema.org"]):
+                    emails.add(email_lower)
+
+        # Also search raw HTML for company LinkedIn if not in anchors
+        if not company_linkedin:
+            comp_match = LINKEDIN_COMPANY_REGEX.search(html)
+            if comp_match:
+                company_linkedin = comp_match.group(0).rstrip("/")
+
+        return sorted(list(emails)), company_linkedin, sorted(list(personal_linkedins))
+
+    @staticmethod
+    def clean_html_to_markdown(html: str, page_title: str = "") -> str:
+        """
+        Strips away scripts, style tags, navigation boilerplates, SVGs, and CSS.
+        Retains semantic headings, lists, and paragraphs formatted for low-token LLM ingestion.
+        """
         if not html:
-            continue
+            return ""
 
-        source_urls.append(
-            page_url
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Remove irrelevant and heavy DOM elements
+        for element in soup([
+            "script", "style", "svg", "noscript", "iframe", "header", "footer",
+            "nav", "form", "button", "symbol", "canvas", "video", "audio"
+        ]):
+            element.decompose()
+
+        # Remove HTML comments
+        for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+            comment.extract()
+
+        # Extract title and meta descriptions
+        meta_desc = ""
+        meta_tag = soup.find("meta", attrs={"name": "description"}) or soup.find("meta", attrs={"property": "og:description"})
+        if meta_tag and meta_tag.get("content"):
+            meta_desc = meta_tag["content"].strip()
+
+        # Prioritize key content containers if present
+        main_content = soup.find("main") or soup.find("article") or soup.find("body") or soup
+
+        # Extract structured text chunks
+        lines: List[str] = []
+        if page_title:
+            lines.append(f"### Page: {page_title}")
+        if meta_desc:
+            lines.append(f"**Meta Description**: {meta_desc}")
+
+        for elem in main_content.find_all(["h1", "h2", "h3", "h4", "p", "li"]):
+            text = elem.get_text(separator=" ", strip=True)
+            if not text or len(text) < 4:
+                continue
+
+            # Skip common cookie consent and disclaimer text
+            lower_text = text.lower()
+            if any(junk in lower_text for junk in [
+                "cookie policy", "accept all cookies", "all rights reserved",
+                "privacy preferences", "terms of use", "manage preferences"
+            ]):
+                continue
+
+            tag_name = elem.name
+            if tag_name == "h1":
+                lines.append(f"\n# {text}")
+            elif tag_name == "h2":
+                lines.append(f"\n## {text}")
+            elif tag_name in ["h3", "h4"]:
+                lines.append(f"\n### {text}")
+            elif tag_name == "li":
+                lines.append(f"- {text}")
+            else:
+                lines.append(text)
+
+        cleaned_text = "\n".join(lines)
+        # Collapse multiple blank lines
+        cleaned_text = re.sub(r"\n{3,}", "\n\n", cleaned_text).strip()
+        return cleaned_text
+
+    @classmethod
+    def process_crawled_pages(
+        cls,
+        domain: str,
+        pages_dict: Dict[str, str]
+    ) -> Dict:
+        """
+        Combines and optimizes content from multiple crawled subpages (home, about, team, pricing, contact).
+        Limits total token footprint while preserving maximal semantic context.
+        """
+        all_emails: Set[str] = set()
+        all_personal_linkedins: Set[str] = set()
+        company_linkedin: Optional[str] = None
+        cleaned_sections: List[str] = []
+
+        total_raw_chars = 0
+
+        for url_or_path, html in pages_dict.items():
+            total_raw_chars += len(html)
+            # Extract emails & LinkedIn URLs
+            page_emails, comp_li, pers_li = cls.extract_emails_and_links(html)
+            all_emails.update(page_emails)
+            all_personal_linkedins.update(pers_li)
+            if comp_li and not company_linkedin:
+                company_linkedin = comp_li
+
+            # Clean content
+            cleaned = cls.clean_html_to_markdown(html, page_title=url_or_path)
+            if cleaned:
+                # Cap each subpage to avoid token overflow
+                capped = cleaned[:3500]
+                cleaned_sections.append(f"--- SOURCE: {url_or_path} ---\n{capped}\n")
+
+        aggregated_text = "\n".join(cleaned_sections)
+        # Final safety token truncation (~12,000 characters ≈ 3,000 tokens)
+        final_prompt_context = aggregated_text[:14000]
+
+        compression_ratio = round(
+            (1 - (len(final_prompt_context) / max(total_raw_chars, 1))) * 100, 1
         )
 
-        text = clean_text(
-            html
-        )
-
-        if text:
-            all_text.append(
-                f"SOURCE: {page_url}\n"
-                f"{text}"
-            )
-
-        for email in extract_emails(
-            html
-        ):
-            all_emails.add(
-                email
-            )
-
-        for linkedin in extract_linkedin_urls(
-            html,
-            page_url
-        ):
-            all_linkedin.add(
-                linkedin
-            )
-
-        people = extract_people_evidence(
-            html,
-            page_url
-        )
-
-        all_people.extend(
-            people
-        )
-
-    all_people = _deduplicate_people(
-        all_people
-    )
-
-    source_urls = _deduplicate_urls(
-        source_urls
-    )
-
-    combined_text = "\n\n".join(
-        all_text
-    )
-
-    # Keep enough website evidence for
-    # names, leadership and company intelligence.
-    max_text_chars = 16000
-
-    combined_text = combined_text[
-        :max_text_chars
-    ]
-
-    return (
-        combined_text,
-        sorted(all_emails),
-        sorted(all_linkedin),
-        all_people,
-        source_urls,
-    )
+        return {
+            "domain": domain,
+            "prompt_context": final_prompt_context,
+            "extracted_emails": sorted(list(all_emails)),
+            "company_linkedin": company_linkedin,
+            "personal_linkedins": sorted(list(all_personal_linkedins)),
+            "raw_chars": total_raw_chars,
+            "optimized_chars": len(final_prompt_context),
+            "compression_ratio_pct": compression_ratio,
+        }

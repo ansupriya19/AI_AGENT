@@ -1,6 +1,8 @@
 playwright
 beautifulsoup4
+lxml
+pydantic
 groq
 python-dotenv
-pydantic
-lxml
+tiktoken
+httpx
